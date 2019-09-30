@@ -20,7 +20,6 @@ def load_dataset():
     
     return train_set_x_orig, train_set_y_orig, test_set_x_orig, test_set_y_orig, classes
 
-
 # def load_dataset():
 #     train_dataset = h5py.File('datasets/flowers/227/train/flowers_random.h5', "r")
 #     train_set_x_orig = np.array(train_dataset["flowers"][:]) # your train set features
@@ -37,22 +36,7 @@ def load_dataset():
     
 #     return train_set_x_orig, train_set_y_orig, test_set_x_orig, test_set_y_orig, classes
 
-
-
 def random_mini_batches(X, Y, mini_batch_size = 64, seed = 0):
-    """
-    Creates a list of random minibatches from (X, Y)
-    
-    Arguments:
-    X -- input data, of shape (input size, number of examples) (m, Hi, Wi, Ci)
-    Y -- true "label" vector (containing 0 if cat, 1 if non-cat), of shape (1, number of examples) (m, n_y)
-    mini_batch_size - size of the mini-batches, integer
-    seed -- this is only for the purpose of grading, so that you're "random minibatches are the same as ours.
-    
-    Returns:
-    mini_batches -- list of synchronous (mini_batch_X, mini_batch_Y)
-    """
-    
     m = X.shape[0]                  # number of training examples
     mini_batches = []
     np.random.seed(seed)
@@ -79,94 +63,53 @@ def random_mini_batches(X, Y, mini_batch_size = 64, seed = 0):
     
     return mini_batches
 
-
 def convert_to_one_hot(Y, C):
     Y = np.eye(C)[Y.reshape(-1)].T
     return Y
 
+def init_dataset():
+	X_train_orig , Y_train_orig , X_test_orig , Y_test_orig , classes = load_dataset()
+    X_train = X_train_orig/255.
+    X_test = X_test_orig/255.
+    Y_train = convert_to_one_hot(Y_train_orig, 6).T
+    Y_test = convert_to_one_hot(Y_test_orig, 6).T
+    print ("number of training examples = " + str(X_train.shape[0]))
+    print ("number of test examples = " + str(X_test.shape[0])) 
+    print ("X_train shape: " + str(X_train.shape)) 
+    print ("Y_train shape: " + str(Y_train.shape))
+    print ("X_test shape: " + str(X_test.shape))
+    print ("Y_test shape: " + str(Y_test.shape))
+    return X_train, Y_train, X_test, Y_test
 
-def forward_propagation_for_predict(X, parameters):
-    """
-    Implements the forward propagation for the model: LINEAR -> RELU -> LINEAR -> RELU -> LINEAR -> SOFTMAX
-    
-    Arguments:
-    X -- input dataset placeholder, of shape (input size, number of examples)
-    parameters -- python dictionary containing your parameters "W1", "b1", "W2", "b2", "W3", "b3"
-                  the shapes are given in initialize_parameters
+def create_placeholder(n_H0, n_W0, n_C0, n_y):
+    X = tf.placeholder(tf.float32, [None, n_H0, n_W0, n_C0], name = "X")
+    Y = tf.placeholder(tf.float32, [None, n_y], name = "Y")
+    keep_prob = tf.placeholder(tf.float32)
+    return X,Y,keep_prob
 
-    Returns:
-    Z3 -- the output of the last LINEAR unit
-    """
-    
-    # Retrieve the parameters from the dictionary "parameters" 
-    W1 = parameters['W1']
-    b1 = parameters['b1']
-    W2 = parameters['W2']
-    b2 = parameters['b2']
-    W3 = parameters['W3']
-    b3 = parameters['b3'] 
-                                                           # Numpy Equivalents:
-    Z1 = tf.add(tf.matmul(W1, X), b1)                      # Z1 = np.dot(W1, X) + b1
-    A1 = tf.nn.relu(Z1)                                    # A1 = relu(Z1)
-    Z2 = tf.add(tf.matmul(W2, A1), b2)                     # Z2 = np.dot(W2, a1) + b2
-    A2 = tf.nn.relu(Z2)                                    # A2 = relu(Z2)
-    Z3 = tf.add(tf.matmul(W3, A2), b3)                     # Z3 = np.dot(W3,Z2) + b3
-    
-    return Z3
+def forward_propagation(X,keep_prob,num_classes):
+    Z1 = tf.contrib.layers.conv2d(inputs=X, num_outputs=96, kernel_size=[3,3], stride=[2,2], padding='VALID', activation_fn=tf.nn.relu) #kernel_size=[7,7]
+    # A1 = tf.nn.lrn(A1, 4, bias=1.0, alpha=0.001/9, beta=0.75, name="lrn1")
+    Z1 = tf.contrib.layers.max_pool2d(inputs=Z1, kernel_size=[3,3], stride=[2,2], padding='VALID')   
 
-def predict(X, parameters):
-    
-    W1 = tf.convert_to_tensor(parameters["W1"])
-    b1 = tf.convert_to_tensor(parameters["b1"])
-    W2 = tf.convert_to_tensor(parameters["W2"])
-    b2 = tf.convert_to_tensor(parameters["b2"])
-    W3 = tf.convert_to_tensor(parameters["W3"])
-    b3 = tf.convert_to_tensor(parameters["b3"])
-    
-    params = {"W1": W1,
-              "b1": b1,
-              "W2": W2,
-              "b2": b2,
-              "W3": W3,
-              "b3": b3}
-    
-    x = tf.placeholder("float", [12288, 1])
-    
-    z3 = forward_propagation_for_predict(x, params)
-    p = tf.argmax(z3)
-    
-    sess = tf.Session()
-    prediction = sess.run(p, feed_dict = {x: X})
-        
-    return prediction
+    Z2 = tf.contrib.layers.conv2d(inputs=Z1, num_outputs=256, kernel_size=[3,3], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu) #kernel_size=[7,7]
+    # A2 = tf.nn.lrn(A2, 4, bias=1.0, alpha=0.001/9, beta=0.75, name="lrn2")
+    Z2 = tf.contrib.layers.max_pool2d(inputs=Z2, kernel_size=[3,3], stride=[2,2], padding='VALID') 
 
-#def predict(X, parameters):
-#    
-#    W1 = tf.convert_to_tensor(parameters["W1"])
-#    b1 = tf.convert_to_tensor(parameters["b1"])
-#    W2 = tf.convert_to_tensor(parameters["W2"])
-#    b2 = tf.convert_to_tensor(parameters["b2"])
-##    W3 = tf.convert_to_tensor(parameters["W3"])
-##    b3 = tf.convert_to_tensor(parameters["b3"])
-#    
-##    params = {"W1": W1,
-##              "b1": b1,
-##              "W2": W2,
-##              "b2": b2,
-##              "W3": W3,
-##              "b3": b3}
-#
-#    params = {"W1": W1,
-#              "b1": b1,
-#              "W2": W2,
-#              "b2": b2}    
-#    
-#    x = tf.placeholder("float", [12288, 1])
-#    
-#    z3 = forward_propagation(x, params)
-#    p = tf.argmax(z3)
-#    
-#    with tf.Session() as sess:
-#        prediction = sess.run(p, feed_dict = {x: X})
-#        
-#    return prediction
+    Z3 = tf.contrib.layers.conv2d(inputs=Z2, num_outputs=384, kernel_size=[3,3], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu) #kernel_size=[7,7]
+    Z4 = tf.contrib.layers.conv2d(inputs=Z3, num_outputs=384, kernel_size=[3,3], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu) #kernel_size=[7,7]
+    Z5 = tf.contrib.layers.conv2d(inputs=Z4, num_outputs=256, kernel_size=[3,3], stride=[1,1], padding='SAME', activation_fn=tf.nn.relu) #kernel_size=[7,7]
+
+    Z5 = tf.contrib.layers.max_pool2d(inputs=Z5, kernel_size=[3,3], stride=[2,2], padding='VALID') 
+
+    Fa1 = tf.contrib.layers.flatten(Z5)
+    F1 = tf.contrib.layers.fully_connected(Fa1,1024,activation_fn=tf.nn.relu)#4096
+    F1 = tf.nn.dropout(F1, keep_prob=keep_prob)
+    F2 = tf.contrib.layers.fully_connected(F1,512,activation_fn=tf.nn.relu)#4096
+    F2 = tf.nn.dropout(F2, keep_prob=keep_prob)
+    Z6 = tf.contrib.layers.fully_connected(F2,num_classes,activation_fn=None)
+    return Z6
+
+def compute_loss(Z6,Y):
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits = Z6, labels = Y))
+    return loss 
